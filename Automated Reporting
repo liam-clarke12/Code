@@ -1,10 +1,16 @@
-from google.colab import files
-uploaded = files.upload()
-
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import linregress
+import os
+from google.colab import files
 
+
+pip install xlsxwriter
+
+uploaded = files.upload()
 
 start_date = input('Input Starting Date (Y-M-D): ')
 end_date = input('Input Ending Date (Y-M-D): ')
@@ -14,8 +20,6 @@ dataframes = []
 df_graphs = []
 
 
-
-import pandas as pd
 
 def vat_report(spreadsheet,dataframe_list, start_date=None, end_date=None, frequency='total'):
     # Read the CSV file into a DataFrame
@@ -64,8 +68,6 @@ def generate_total_vat_report(df):
                                     'Total VAT Due': [total_vat_due]})
     return total_report_df
 
-import pandas as pd
-
 def generate_profit_loss_df(spreadsheet, dataframe_list,frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
     df = pd.read_csv(spreadsheet, parse_dates=['Date'])
@@ -107,8 +109,6 @@ def generate_total_pl_report(df):
     return total_pl_df
 
 
-import pandas as pd
-
 def generate_cash_flow_df(spreadsheet, dataframes_list, frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
     df = pd.read_csv(spreadsheet, parse_dates=['Date'])
@@ -139,10 +139,6 @@ def generate_total_cash_flow(df):
     dataframes.append(total_cf_df)
     return total_cf_df
 
-
-import numpy as np
-import matplotlib.pyplot as plt
-from scipy.stats import linregress
 
 def plot_bar_chart(df, df_graphs):
     # Get the name of the DataFrame variable and append '_graph'
@@ -180,8 +176,6 @@ def plot_bar_chart(df, df_graphs):
 
     plt.savefig(figure_name)  # Save the figure
 
-import pandas as pd
-
 def count_subscription_creations(spreadsheet, dataframes, frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
     df = pd.read_csv(spreadsheet, parse_dates=['Date'])
@@ -214,8 +208,6 @@ def count_total_sub_creations(df):
     total_sub_count_df = pd.DataFrame({'Total Subscription Creations': [total_count]})
     return total_sub_count_df
 
-
-import pandas as pd
 
 def calculate_churn_rate(spreadsheet, dataframe, frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
@@ -250,10 +242,6 @@ def calculate_churn(df, freq):
 
     return churn_df
 
-
-import pandas as pd
-import os
-from google.colab import files
 
 def export_dataframes_to_excel(dataframes, df_graphs, start_date, end_date):
     # Generate filename based on the start and end dates
@@ -308,8 +296,6 @@ churn_report = calculate_churn_rate(spreadsheet, dataframes, frequency, start_da
 churn_report
 
 plot_bar_chart(churn_report,df_graphs)
-
-pip install xlsxwriter
 
 excel_file = export_dataframes_to_excel(dataframes, df_graphs, start_date, end_date)
 excel_file
