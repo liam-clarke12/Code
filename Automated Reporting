@@ -27,15 +27,15 @@ def vat_report(spreadsheet,dataframe_list, start_date=None, end_date=None, frequ
 
     # Filter data based on start and end dates if provided
     if start_date and end_date:
-        df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        df1 = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # Determine frequency and generate report accordingly
     if frequency == 'daily':
-        report_df = generate_vat_report(df, 'D')
+        report_df = generate_vat_report(df1, 'D')
     elif frequency == 'monthly':
-        report_df = generate_vat_report(df, 'M')
+        report_df = generate_vat_report(df1, 'M')
     elif frequency == 'yearly':
-        report_df = generate_vat_report(df, 'Y')
+        report_df = generate_vat_report(df1, 'Y')
     else:
         report_df = generate_total_vat_report(df)
 
@@ -43,9 +43,9 @@ def vat_report(spreadsheet,dataframe_list, start_date=None, end_date=None, frequ
 
     return report_df
 
-def generate_vat_report(df, freq):
+def generate_vat_report(df1, freq):
     # Group data by the specified frequency and calculate VAT amounts
-    report_df = df.resample(freq, on='Date').apply(calculate_vat)
+    report_df = df1.resample(freq, on='Date').apply(calculate_vat)
     report_df.reset_index(inplace=True)
     return report_df
 
@@ -74,7 +74,7 @@ def generate_profit_loss_df(spreadsheet, dataframe_list,frequency, start_date=No
 
     # Filter data based on start and end dates if provided
     if start_date and end_date:
-        df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        df1 = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # Determine frequency and generate report accordingly
     freq_map = {'daily': 'D', 'monthly': 'M', 'yearly': 'Y', 'total': None}
@@ -83,11 +83,11 @@ def generate_profit_loss_df(spreadsheet, dataframe_list,frequency, start_date=No
     if freq_code is None:
         return generate_total_pl_report(df)
     else:
-        return generate_pl_report(df, freq_code)
+        return generate_pl_report(df1, freq_code)
 
-def generate_pl_report(df, freq):
+def generate_pl_report(df1, freq):
     # Group data by frequency and sum income and expense
-    pl_df = df.resample(freq, on='Date').agg({'Income': 'sum', 'Expense': 'sum'}).reset_index()
+    pl_df = df1.resample(freq, on='Date').agg({'Income': 'sum', 'Expense': 'sum'}).reset_index()
     pl_df['Net Profit'] = pl_df['Income'] - pl_df['Expense']
     dataframes.append(pl_df)
     return pl_df
@@ -115,7 +115,7 @@ def generate_cash_flow_df(spreadsheet, dataframes_list, frequency, start_date=No
 
     # Filter data based on start and end dates if provided
     if start_date and end_date:
-        df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        df1 = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # Determine frequency and generate report accordingly
     freq_map = {'daily': 'D', 'monthly': 'M', 'yearly': 'Y', 'total': None}
@@ -124,11 +124,11 @@ def generate_cash_flow_df(spreadsheet, dataframes_list, frequency, start_date=No
     if freq_code is None:
         return generate_total_cash_flow(df)
     else:
-        return generate_cash_flow_report(df, freq_code)
+        return generate_cash_flow_report(df1, freq_code)
 
-def generate_cash_flow_report(df, freq):
+def generate_cash_flow_report(df1, freq):
     # Calculate cash flow based on frequency
-    cash_flow_df = df.groupby(pd.Grouper(key='Date', freq=freq)).apply(lambda x: x['Income'].sum() - x['Expense'].sum()).reset_index(name='Cash Flow')
+    cash_flow_df = df1.groupby(pd.Grouper(key='Date', freq=freq)).apply(lambda x: x['Income'].sum() - x['Expense'].sum()).reset_index(name='Cash Flow')
     dataframes.append(cash_flow_df)
     return cash_flow_df
 
@@ -140,13 +140,27 @@ def generate_total_cash_flow(df):
     return total_cf_df
 
 
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.stats import linregress
+
 def plot_bar_chart(df, df_graphs):
     # Get the name of the DataFrame variable and append '_graph'
     df_name = f"{[name for name, obj in globals().items() if obj is df][0]}_graph"
 
-    # Convert x values to ordinal dates
-    x_values = df.iloc[:, 0].apply(lambda date: date.toordinal()).values
-    y_values = df.iloc[:, -1].values   # Extracting values from the last column for y
+    # Check if the first column contains dates
+    if isinstance(df.iloc[:, 0].values[0], (pd.Timestamp, np.datetime64)):
+        # Convert x values to ordinal dates
+        x_values = df.iloc[:, 0].apply(lambda date: date.toordinal()).values
+        x_labels = df.iloc[:, 0].values.astype(str)  # Convert dates to string for tick labels
+        x_label = df.columns[0]  # Using the name of the first column as xlabel
+    else:
+        # Use 'total' as x-axis label and plot the last column normally
+        x_values = np.arange(len(df))
+        x_labels = ['total'] * len(df)
+        x_label = 'total'
+
+    y_values = df.iloc[:, -1].values  # Extracting values from the last column for y
 
     # Plotting bars with thicker width
     plt.bar(x_values, y_values, color='purple', width=5)  # Adjust width as needed
@@ -160,14 +174,12 @@ def plot_bar_chart(df, df_graphs):
     y_fit = slope * x_fit + intercept
     plt.plot(x_fit, y_fit, color='red')  # Add regression line
 
-    # Set custom x-axis tick labels in date format
-    num_ticks = 10  # Number of ticks to display
-    indices = np.linspace(0, len(df) - 1, num_ticks, dtype=int)  # Evenly spaced indices
-    plt.xticks(ticks=x_values[indices], labels=df.iloc[indices, 0], rotation=45)
+    # Set custom x-axis tick labels
+    plt.xticks(ticks=x_values, labels=x_labels, rotation=45)
 
-    plt.xlabel(df.columns[0])  # Using the name of the last column as xlabel
-    plt.ylabel(df.columns[-1])   # Using the name of the first column as ylabel
-    
+    plt.xlabel(x_label)  # Set x-axis label
+    plt.ylabel(df.columns[-1])  # Using the name of the last column as ylabel
+
     # Save the figure with a unique name based on the DataFrame name
     figure_name = f"{df_name}_figure_{len(df_graphs)}.png"  # Append index to make it unique
 
@@ -176,30 +188,33 @@ def plot_bar_chart(df, df_graphs):
 
     plt.savefig(figure_name)  # Save the figure
 
+
 def count_subscription_creations(spreadsheet, dataframes, frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
     df = pd.read_csv(spreadsheet, parse_dates=['Date'])
 
     # Filter data based on start and end dates if provided
     if start_date and end_date:
-        df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        df1 = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # Count the occurrences of "Subscription creation" for the specified frequency
     if frequency == 'daily':
-        sub_count_df = count_sub_creations(df, 'D')
+        sub_count_df = count_sub_creations(df1, 'D')
     elif frequency == 'monthly':
-        sub_count_df = count_sub_creations(df, 'M')
+        sub_count_df = count_sub_creations(df1, 'M')
     elif frequency == 'yearly':
-        sub_count_df = count_sub_creations(df, 'Y')
+        sub_count_df = count_sub_creations(df1, 'Y')
     else:
         sub_count_df = count_total_sub_creations(df)
 
+    if dataframes is not None:
+        dataframes.append(sub_count_df)
+
     return sub_count_df
 
-def count_sub_creations(df, freq):
+def count_sub_creations(df1, freq):
     # Group data by the specified frequency and count "Subscription creation"
-    sub_count_df = df.resample(freq, on='Date')['Description'].apply(lambda x: (x == 'Subscription creation').sum()).reset_index(name='Subscription Creations')
-    dataframes.append(sub_count_df)
+    sub_count_df = df1.resample(freq, on='Date')['Description'].apply(lambda x: (x == 'Subscription creation').sum()).reset_index(name='Subscription Creations')
     return sub_count_df
 
 def count_total_sub_creations(df):
@@ -209,27 +224,32 @@ def count_total_sub_creations(df):
     return total_sub_count_df
 
 
-def calculate_churn_rate(spreadsheet, dataframe, frequency, start_date=None, end_date=None):
+def calculate_churn_rate(spreadsheet, dataframes, frequency, start_date=None, end_date=None):
     # Read the CSV file into a DataFrame
     df = pd.read_csv(spreadsheet, parse_dates=['Date'])
 
     # Filter data based on start and end dates if provided
     if start_date and end_date:
-        df = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
+        df1 = df.loc[(df['Date'] >= start_date) & (df['Date'] <= end_date)]
 
     # Calculate the churn rate for the specified frequency
     if frequency == 'daily':
-        churn_df = calculate_churn(df, 'D')
+        churn_df = calculate_churn(df1, 'D')
     elif frequency == 'monthly':
-        churn_df = calculate_churn(df, 'M')
+        churn_df = calculate_churn(df1, 'M')
     elif frequency == 'yearly':
-        churn_df = calculate_churn(df, 'Y')
+        churn_df = calculate_churn(df1, 'Y')
+    else:
+        churn_df = calculate_total_churn(df)
+
+    if dataframes is not None:
+        dataframes.append(churn_df)
 
     return churn_df
 
-def calculate_churn(df, freq):
+def calculate_churn(df1, freq):
     # Group data by the specified frequency and count non-zero 'Income' descriptions
-    count_df = df.resample(freq, on='Date').apply(lambda x: ((x['Description'] != 'Subscription creation') & (x['Income'] != 0) & (x['Category'].str.contains('Membership', case=False, na=False))).sum()).reset_index(name='Nonzero Income Descriptions')
+    count_df = df1.resample(freq, on='Date').apply(lambda x: ((x['Description'] != 'Subscription creation') & (x['Income'] != 0) & (x['Category'].str.contains('Membership', case=False, na=False))).sum()).reset_index(name='Nonzero Income Descriptions')
 
     # Calculate churn rate (percentage loss) compared to the previous period
     churn_rate = ((count_df['Nonzero Income Descriptions'] - count_df['Nonzero Income Descriptions'].shift(1)) / count_df['Nonzero Income Descriptions'].shift(1)) * 100
@@ -238,12 +258,23 @@ def calculate_churn(df, freq):
     # Create a DataFrame with date and churn rate columns
     churn_df = pd.DataFrame({'Date': count_df['Date'], 'Churn Rate': churn_rate})
 
-    dataframes.append(churn_df)
-
     return churn_df
 
+def calculate_total_churn(df):
+    # Count non-zero 'Income' descriptions for the entire DataFrame
+    total_count = ((df['Income'] != 0) & 
+                   (df['Description'] != 'Subscription creation') & 
+                   (df['Category'].str.contains('Membership', case=False, na=False))).mean()
+    
+    # Create a DataFrame with the total count
+    total_churn_df = pd.DataFrame({'Mean Churn Count': [total_count]})
+    
+    return total_churn_df
 
-def export_dataframes_to_excel(dataframes, df_graphs, start_date, end_date):
+
+
+
+def export_dataframes_to_excel(dataframes, df_graphs, start_date = None, end_date = None):
     # Generate filename based on the start and end dates
     filename = f"Report.xlsx"
     excel_filename = os.path.join('/content', filename)
@@ -257,7 +288,7 @@ def export_dataframes_to_excel(dataframes, df_graphs, start_date, end_date):
         for idx, (df, graph) in enumerate(zip(dataframes, df_graphs), start=1):
             sheet_name = f"Sheet{idx}"  # Sheet name (e.g., Sheet1, Sheet2, ...)
             df.to_excel(writer, sheet_name=sheet_name, index=False)
-            
+
             # Add the image to the sheet
             worksheet = writer.sheets[sheet_name]
             worksheet.insert_image('A10', graph)  # Adjust the cell position as needed
